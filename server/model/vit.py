@@ -4,6 +4,7 @@ import torchvision.transforms as transforms
 from torchsummary import summary
 from thop import profile
 import time
+from runner.utils import get_config
 
 
 class PatchEmbedding(nn.Module):
@@ -102,6 +103,13 @@ class ViT(nn.Module):
 
 
 if __name__ == '__main__':
+    config = get_config('config.yaml')
+
+    if config['GPU']['cuda']:
+        device = 'cuda'
+    else:
+        device = 'cpu'
+
     model = ViT(
         in_channels=1,
         patch_size=(2, 16),
@@ -111,7 +119,7 @@ if __name__ == '__main__':
         mlp_dim=32,
         num_classes=24,
         in_size=[2, 1024]
-    ).to("cuda")
+    ).to(device)
     
     print(summary(model, (1, 2, 1024)))
 
@@ -128,7 +136,7 @@ if __name__ == '__main__':
 
     input = torch.randn(1, 1, 2, 1024)
 
-    macs, params = profile(model, inputs=(torch.Tensor(input).to(device="cuda"),))
+    macs, params = profile(model, inputs=(torch.Tensor(input).to(device=device),))
     print(
         "Param: %.2fM | FLOPs: %.3fG" % (params / (1000 ** 2), macs / (1000 ** 3))
     )
