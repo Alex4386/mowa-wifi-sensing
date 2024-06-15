@@ -8,10 +8,13 @@ from datetime import datetime
 import time
 import socket
 import pickle
+import argparse
 
 # For send CSI data(server IP/Port)
-HOST = 'xxx.xxx.xxx.xxx'
-PORT = 1111
+parser = argparse.ArgumentParser(description='MoWA WiFi Sensing')
+parser.add_argument('-h', '--host', type=str, default='127.0.0.1', help='Server IP')
+parser.add_argument('-p', '--port', type=int, default=5501, help='Server Port')
+parser.add_argument('--legacy', action='store_true', help='Use legacy mode for data collection', default=False)
 
 
 # for sampling
@@ -21,7 +24,14 @@ def truncate(num, n):
 
 
 def sniffing(nicname):
+    args = parser.parse_args()
+
+    HOST = args.host
+    PORT = args.port
+    LEGACY = args.legacy
+
     print('Start Sniifing... @', nicname, 'UDP, Port 5500')
+    print('Send CSI data to', HOST+':'+str(PORT))
     sniffer = pcap.pcap(name=nicname, promisc=True, immediate=True, timeout_ms=50)
     sniffer.setfilter('udp and port 5500')
 
@@ -41,13 +51,15 @@ def sniffing(nicname):
             ip = eth.data
             udp = ip.data
 
+            offset = 4 if LEGACY else 2
+
             # MAC Address 추출
             # UDP Payload에서 Four Magic Byte (0x11111111) 이후 6 Byte는 추출된 Mac Address 의미
-            mac = udp.data[4:10].hex()
+            mac = udp.data[offset:6+offset].hex()
 
             # Four Magic Byte + 6 Byte Mac Address + 2 Byte Sequence Number + 2 Byte Core and Spatial Stream Number + 2 Byte Chanspac + 2 Byte Chip Version 이후 CSI
             # 4 + 6 + 2 + 2 + 2 + 2 = 18 Byte 이후 CSI 데이터
-            csi = udp.data[18:]
+            csi = udp.data[offset+14:]
 
             bandwidth = ip.__hdr__[2][2]
             nsub = int(bandwidth * 3.2)
